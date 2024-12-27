@@ -1,3 +1,4 @@
+// Frontend: App.js
 import React, { useState, useEffect } from 'react';
 import './App.css';
 
@@ -68,9 +69,30 @@ function App() {
         }
     };
 
-    const joinRoom = (roomId) => {
+    const joinRoom = async (roomId) => {
         setCurrentRoom(roomId);
         connectWebSocket(roomId);
+
+        const response = await fetch(`http://127.0.0.1:8080/get_chat_history/${roomId}`);
+        if (response.ok) {
+            const history = (await response.json());
+
+            const transformedHistory = history.map(item => {
+                try {
+                    const parsedMessage = JSON.parse(item.message);
+                    return {
+                        ...item,
+                        message: parsedMessage.message
+                    };
+                } catch (error) {
+                    console.error("Failed to parse message:", error);
+                    return item;
+                }
+            });
+
+            console.log(transformedHistory)
+            setChat(transformedHistory);
+        }
     };
 
     const connectWebSocket = (roomId) => {
@@ -78,7 +100,7 @@ function App() {
             socket.close();
         }
 
-        const ws = new WebSocket(`ws://127.0.0.1:8080/ws/?roomId=${roomId}`);
+        const ws = new WebSocket(`ws://127.0.0.1:8080/ws/?roomId=${roomId}&username=${username}`);
         setSocket(ws);
 
         ws.onopen = () => {
