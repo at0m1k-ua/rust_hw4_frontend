@@ -68,21 +68,6 @@ function App() {
         }
     };
 
-    const addUserToRoom = async (roomId) => {
-        const response = await fetch('http://127.0.0.1:8080/add_user', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ room_id: roomId, username }),
-        });
-        if (response.ok) {
-            alert('User added to room successfully!');
-        } else {
-            alert('Failed to add user to room.');
-        }
-    };
-
     const joinRoom = (roomId) => {
         setCurrentRoom(roomId);
         connectWebSocket(roomId);
@@ -101,8 +86,15 @@ function App() {
         };
 
         ws.onmessage = (event) => {
-            const data = JSON.parse(event.data);
-            setChat((prevChat) => [...prevChat, data.message]);
+            try {
+                const data = JSON.parse(event.data);
+                setChat((prevChat) => [
+                    ...prevChat,
+                    { username: data.username, message: data.message },
+                ]);
+            } catch (error) {
+                console.error('Error parsing message data:', error);
+            }
         };
 
         ws.onclose = () => {
@@ -116,8 +108,17 @@ function App() {
 
     const sendMessage = () => {
         if (socket && socket.readyState === WebSocket.OPEN) {
-            socket.send(JSON.stringify({ roomId: currentRoom, message }));
-            setMessage('');
+            try {
+                const messageData = {
+                    roomId: currentRoom,
+                    message,
+                    username,
+                };
+                socket.send(JSON.stringify(messageData));
+                setMessage('');
+            } catch (error) {
+                console.error('Error sending message:', error);
+            }
         } else {
             alert('Connection is not open. Please reconnect.');
         }
@@ -160,7 +161,6 @@ function App() {
                             <li key={room.id}>
                                 {room.name}{' '}
                                 <button onClick={() => joinRoom(room.id)}>Join</button>
-                                <button onClick={() => addUserToRoom(room.id)}>Add Me</button>
                             </li>
                         ))}
                     </ul>
@@ -169,7 +169,9 @@ function App() {
                             <h2>Chat in {currentRoom}</h2>
                             <div className="chat-box">
                                 {chat.map((msg, index) => (
-                                    <div key={index}>{msg}</div>
+                                    <div key={index}>
+                                        <strong>{msg.username}:</strong> {msg.message}
+                                    </div>
                                 ))}
                             </div>
                             <input
